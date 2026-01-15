@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Maintenance Working Progress Chart</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="assets/kataria-favicon.png">
+</head>
+
+<body>
+
+<h1 class="company-name">KATARIA ENTERPRISE</h1>
+<h2>MAINTENANCE WORKING PROGRESS CHART</h2>
+
+<div class="info-panel">
+    <span id="pending"></span>
+    <span id="running"></span>
+    <span id="complete"></span>
+    <div id="date"></div>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Sr.</th>
+            <th>Token</th>
+            <th>Vehicle</th>
+            <th>Status</th>
+            <th>Approx Time</th>
+            <th>Work</th>
+            <th>Entry Time</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>
+                <select id="plantFilter">
+                    <option value="ALL">PLANT</option>
+                    <option value="RAJKOT">RAJKOT</option>
+                    <option value="VALSAD">VALSAD</option>
+                    <option value="INDORE">INDORE</option>
+                    <option value="SANDILA">SANDILA</option>
+                </select>
+            </th>
+            <th>Driver</th>
+            <th>Mechanic</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+
+<script>
+const dataFiles = [
+    "data/data1.json",
+    "data/data2.json"
+];
+
+function parseDate(str) {
+    if (!str) return 0;
+    return new Date(str.replace(/-/g,'/')).getTime() || 0;
+}
+
+function formatTime(str) {
+    if (!str) return "";
+    return new Date(str.replace(/-/g,'/'))
+        .toLocaleString('en-IN', { hour12: true });
+}
+
+function loadData() {
+    Promise.all(dataFiles.map(f => fetch(f).then(r => r.json())))
+        .then(files => {
+            let data = files.flat();
+
+            const plant = new URLSearchParams(location.search).get('plant') || 'ALL';
+            if (plant !== 'ALL') {
+                data = data.filter(d => d.plant === plant);
+            }
+
+            data.sort((a,b) => {
+                const order = { "WORK RUNNING":1, "PENDING":2, "COMPLETE":3 };
+                if (order[a.status] !== order[b.status])
+                    return order[a.status] - order[b.status];
+                return parseDate(b.entry_date_time) - parseDate(a.entry_date_time);
+            });
+
+            document.getElementById('pending').textContent =
+                "Pending: " + data.filter(d => d.status==="PENDING").length;
+            document.getElementById('running').textContent =
+                "Work Running: " + data.filter(d => d.status==="WORK RUNNING").length;
+            document.getElementById('complete').textContent =
+                "Complete: " + data.filter(d => d.status==="COMPLETE").length;
+
+            document.getElementById('date').textContent =
+                new Date().toLocaleString('en-IN',{weekday:'long',hour12:true});
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = "";
+
+            data.forEach((row,i)=>{
+                tbody.innerHTML += `
+                <tr class="${row.status.toLowerCase().replace(' ','-')}">
+                    <td>${i+1}</td>
+                    <td>${row.token}</td>
+                    <td>${row.vehicle}</td>
+                    <td>${row.status}</td>
+                    <td>${row.estimate_time || ""}</td>
+                    <td>${row.work}</td>
+                    <td>${formatTime(row.entry_date_time)}</td>
+                    <td>${formatTime(row.start_date_time)}</td>
+                    <td>${formatTime(row.end_date_time)}</td>
+                    <td>${row.plant}</td>
+                    <td>${row.driver}</td>
+                    <td>${row.mechanic}</td>
+                </tr>`;
+            });
+        });
+}
+
+document.getElementById('plantFilter').onchange = e => {
+    location.search = "?plant=" + e.target.value;
+};
+
+loadData();
+setTimeout(() => location.reload(), 120000);
+</script>
+
+</body>
+</html>
